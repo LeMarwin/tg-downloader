@@ -1,0 +1,8 @@
+/target
+/stored
+/.vscode
+bot_log
+.envrc
+.direnv
+*.binlog
+yt-dlp
