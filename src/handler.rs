@@ -19,7 +19,7 @@ use tokio::io::AsyncReadExt as _;
 use crate::{
     downloader::Downloader,
     error::{Error, ErrorExt as _, HandlerResult},
-    url::{URL_CHECKER, UrlType},
+    url::UrlMatcher,
     util::{self, VideoMeta},
 };
 
@@ -32,15 +32,9 @@ pub async fn download_request(
 ) -> HandlerResult<()> {
     let name = user.username.clone().unwrap_or(user.full_name());
     let chat_id: ChatId = user.id.into();
-    let check_result = URL_CHECKER.check(&text);
-    let url_type = check_result
+    let (url, url_type) = UrlMatcher::get_match(&text)
         .ok_or(Error::UnrecognizedUrl(text.clone()))
         .with_chat(user.id.into())?;
-    let url = if matches!(url_type, UrlType::YoutubeVideo) {
-        text.strip_prefix("video ").unwrap_or(&text)
-    } else {
-        &text
-    };
     tracing::info!(user=name, %chat_id, %url_type, url, "Request");
 
     let path = downloader

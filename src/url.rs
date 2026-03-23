@@ -1,7 +1,5 @@
 //! URL matcher
 
-use std::{collections::HashMap, iter::FromIterator as _, sync::LazyLock};
-
 use lazy_regex::{Lazy, regex};
 use regex::Regex;
 
@@ -50,73 +48,117 @@ impl UrlType {
     }
 }
 
+static YOUTUBE: &Lazy<Regex> = regex!(
+    r"((?:https?:)?//)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(/(?:[\w\-]+\?v=|embed/|v/)?)([\w\-]+)(\S+)?"
+);
+
+static TIKTOK: &Lazy<Regex> = regex!(
+    r#"https://(vt\.|m\.|www\.|)tiktok\.com/((@[a-zA-Z0-9_]*/video/[a-zA-Z0-9_\?=&]*)|([a-zA-Z0-9_]*))"#
+);
+static WEBM: &Lazy<Regex> = regex!(r#"(?:http)(?:.+/)(.+)(.webm)$"#);
+static INSTA_REEL: &Lazy<Regex> =
+    regex!(r#"((?:https?:)?//)?((?:www|m)\.)?((?:instagram\.com)/reel/)"#);
+
+static AUDIO: &Lazy<Regex> = regex!(r"(^[aA]\w*\s)|(\s[aA]\w*$)");
+static VIDEO: &Lazy<Regex> = regex!(r"(^(v\w*\s)|(V\w*\s))|((\sv\w*|\sV\w*)$)");
+
 /// Url checker helper
-pub struct UrlChecker(HashMap<UrlType, &'static Lazy<Regex>>);
+pub struct UrlMatcher {}
 
-/// Globally accessible checker
-pub static URL_CHECKER: LazyLock<UrlChecker> = LazyLock::new(UrlChecker::default);
-
-impl UrlChecker {
-    /// Check url type
-    pub fn check(&self, input: &str) -> Option<UrlType> {
-        self.0
-            .iter()
-            .find_map(|(k, v)| v.is_match(input).then_some(*k))
+impl UrlMatcher {
+    /// Get [`UrlType`] match
+    pub fn get_match(url: &str) -> Option<(&str, UrlType)> {
+        let youtube_match = Self::match_youtube(url);
+        if youtube_match.is_some() {
+            return youtube_match;
+        }
+        [
+            (UrlType::Webm, WEBM),
+            (UrlType::Tiktok, TIKTOK),
+            (UrlType::InstaReel, INSTA_REEL),
+        ]
+        .into_iter()
+        .find_map(|(t, r)| r.is_match(url).then_some((url, t)))
     }
-}
 
-impl Default for UrlChecker {
-    fn default() -> Self {
-        Self(HashMap::from_iter([
-            (
-                UrlType::YoutubeAudio,
-                regex!(
-                    r"^((?:https?:)?//)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(/(?:[\w\-]+\?v=|embed/|v/)?)([\w\-]+)(\S+)?$"
-                ),
-            ),
-            (
-                UrlType::YoutubeVideo,
-                regex!(
-                    r#"^((video )((?:https?:)?//)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(/(?:[\w\-]+\?v=|embed/|v/)?)([\w\-]+)(\S+)?$)|(((?:https?:)?//)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(/(?:[\w\-]+\?v=|embed/|v/)?)([\w\-]+)(\S+)?( video)$)"#
-                ),
-            ),
-            (
-                UrlType::Tiktok,
-                regex!(
-                    r#"https://(vt\.|m\.|www\.|)tiktok\.com/((@[a-zA-Z0-9_]*/video/[a-zA-Z0-9_\?=&]*)|([a-zA-Z0-9_]*))"#
-                ),
-            ),
-            (UrlType::Webm, regex!(r#"(?:http)(?:.+/)(.+)(.webm)$"#)),
-            (
-                UrlType::InstaReel,
-                regex!(r#"^((?:https?:)?//)?((?:www|m)\.)?((?:instagram\.com)/reel/)"#),
-            ),
-        ]))
+    fn match_youtube(url: &str) -> Option<(&str, UrlType)> {
+        if let Some(youtube_url) = YOUTUBE.captures(url).and_then(|m| m.get(0)) {
+            let bare_url = youtube_url.as_str();
+            let ty = if VIDEO.is_match(url) | (url.contains("/shorts/") && !AUDIO.is_match(url)) {
+                UrlType::YoutubeVideo
+            } else {
+                UrlType::YoutubeAudio
+            };
+            Some((bare_url, ty))
+        } else {
+            None
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::url::{URL_CHECKER, UrlType};
+    use crate::url::{UrlMatcher, UrlType};
 
     #[test]
-    fn match_tiktok() {
-        let r = URL_CHECKER.check("https://vt.tiktok.com/ZSFhj2JFc/");
-        assert_eq!(r, Some(UrlType::Tiktok));
-    }
+    fn test_url_matcher() {
+        let short = "https://youtube.com/shorts/2Xn2QxECrek?si=czHvJBoblApUjMEp".to_owned();
+        let regular = "https://www.youtube.com/watch?v=3B4524ot5BM".to_owned();
+        let tiktok = "https://vt.tiktok.com/ZSFhj2JFc/".to_owned();
+        let webm = "https://i.4cdn.org/wsg/1774070495471223.webm".to_owned();
+        let insta = "https://www.instagram.com/reel/DAAAAAAAAAA".to_owned();
+        let test_urls = [
+            (UrlType::YoutubeVideo, short.clone(), short.clone()),
+            (UrlType::YoutubeAudio, regular.clone(), regular.clone()),
+            (UrlType::Tiktok, tiktok.clone(), tiktok),
+            (UrlType::Webm, webm.clone(), webm),
+            (UrlType::InstaReel, insta.clone(), insta),
+        ]
+        .into_iter()
+        .chain(
+            [
+                (format!("audio {short}"), short.clone()),
+                (format!("au {short}"), short.clone()),
+                (format!("a {short}"), short.clone()),
+                (format!("{short} a"), short.clone()),
+                (format!("{short} audio"), short.clone()),
+                (format!("{short} au"), short.clone()),
+                (format!("Audio {short}"), short.clone()),
+                (format!("Au {short}"), short.clone()),
+                (format!("A {short}"), short.clone()),
+                (format!("{short} A"), short.clone()),
+                (format!("{short} Audio"), short.clone()),
+                (format!("{short} Au"), short),
+            ]
+            .into_iter()
+            .map(|(u, bare_url)| (UrlType::YoutubeAudio, u, bare_url)),
+        )
+        .chain(
+            [
+                (format!("video {regular}"), regular.clone()),
+                (format!("vid {regular}"), regular.clone()),
+                (format!("v {regular}"), regular.clone()),
+                (format!("{regular} v"), regular.clone()),
+                (format!("{regular} video"), regular.clone()),
+                (format!("{regular} vid"), regular.clone()),
+                (format!("Video {regular}"), regular.clone()),
+                (format!("V {regular}"), regular.clone()),
+                (format!("{regular} V"), regular.clone()),
+                (format!("{regular} Video"), regular.clone()),
+                (format!("{regular} Vid"), regular),
+            ]
+            .map(|(u, bare_url)| (UrlType::YoutubeVideo, u, bare_url)),
+        );
 
-    #[test]
-    fn match_youtube_audio() {
-        let r = URL_CHECKER.check("https://youtu.be/ytWz0qVvBZ0?si=XVs8rAM2bx-9FEiS");
-        assert_eq!(r, Some(UrlType::YoutubeAudio));
-    }
+        for (t, url, bare) in test_urls {
+            assert_eq!(
+                UrlMatcher::get_match(&url),
+                Some((bare.as_str(), t)),
+                "{url}"
+            );
+        }
 
-    #[test]
-    fn match_youtube_video() {
-        let r = URL_CHECKER.check("video https://youtu.be/ytWz0qVvBZ0?si=XVs8rAM2bx-9FEiS");
-        assert_eq!(r, Some(UrlType::YoutubeVideo));
-
-        let r = URL_CHECKER.check("https://youtu.be/ytWz0qVvBZ0?si=XVs8rAM2bx-9FEiS video");
-        assert_eq!(r, Some(UrlType::YoutubeVideo));
+        assert_eq!(UrlMatcher::get_match("Nonsense"), None);
+        assert_eq!(UrlMatcher::get_match("https://www.google.com/"), None);
     }
 }
