@@ -1,9 +1,9 @@
 [package]
-name = "tiktok-downloader-tg-bot"
+name = "tg-downloader"
 version = "0.1.0"
 authors = ["lemarwin"]
 edition = "2024"
-default-run = "tiktok-downloader-tg-bot"
+default-run = "tg-downloader"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

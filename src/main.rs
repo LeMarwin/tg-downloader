@@ -3,7 +3,7 @@ use std::sync::Arc;
 use teloxide::prelude::*;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
-use tiktok_downloader_tg_bot::{
+use tg_downloader::{
     downloader::Downloader,
     error::ErrorSender,
     handler::{download_request, mk_round},
