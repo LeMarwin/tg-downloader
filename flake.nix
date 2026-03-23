@@ -54,6 +54,8 @@
           inputsFrom = [ pkgs.downloader.downloader ];
           inherit (pkgs.downloader.downloader) CLANG_PATH;
           inherit (pkgs.downloader.downloader) LIBCLANG_PATH;
+          inherit (pkgs.downloader.downloader) FFMPEG_PATH;
+          inherit (pkgs.downloader.downloader) YT_DLP_PATH;
           packages = with pkgs; [
             cargo-hakari
             cargo-nextest

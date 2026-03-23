@@ -2,16 +2,22 @@
 name = "tiktok-downloader-tg-bot"
 version = "0.1.0"
 authors = ["lemarwin"]
-edition = "2018"
+edition = "2024"
 default-run = "tiktok-downloader-tg-bot"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-env_logger = "0.11.8"
-log = "0.4.27"
-regex = "1.11.1"
-teloxide = {version = "0.15.0", features = ["rustls"]}
+bytes = "1.11.1"
+ez-ffmpeg = { version = "0.10.0", features = [ "async" ]}
+futures = "0.3.32"
+lazy-regex = "3.6.0"
+openssl = { version = "0.10.75", features = [ "vendored" ] }
+teloxide = { version = "0.17.0" }
+tempfile = "3.27.0"
 thiserror = "2.0.12"
-tokio = {version = "1.44.2", features = ["macros", "process"]}
-openssl = {version = "0.10.72", features = ["vendored"]}
+tokio = {version = "1.44.2", features = [ "macros", "process" ]}
+tracing = "0.1.44"
+tracing-subscriber = {version = "0.3.22", features = [ "default", "json", "env-filter", "fmt" ]}
+async-tempfile = "0.7.0"
+ffprobe = "0.4.0"

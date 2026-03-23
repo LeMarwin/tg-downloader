@@ -11,7 +11,9 @@
   pkg-config,
   openssl,
   git,
-  ffmpeg_7-full
+  ffmpeg_7-full,
+  yt-dlp,
+  deno
 }:
 let
   nativeBuildInputs = [
@@ -21,6 +23,7 @@ let
   buildInputs = [
     openssl
     ffmpeg_7-full
+    deno
   ];
   toolchain = lib.defaultTo (
     pkgs:
@@ -57,6 +60,8 @@ craneLib.buildPackage (
   // {
     CLANG_PATH = "${pkgs.clang}/bin/clang";
     LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+    FFMPEG_PATH = "${pkgs.ffmpeg_7-full}/bin/";
+    YT_DLP_PATH = "${pkgs.yt-dlp}/bin/yt-dlp";
     nativeBuildInputs = commonArgs.nativeBuildInputs;
     cargoExtraArgs = if example == null then "--locked" else "--locked --example ${example}";
     pnameSuffix = if example == null then "" else "-${example}";
