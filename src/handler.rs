@@ -1,6 +1,9 @@
 //! Request handlers
 
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use bytes::Bytes;
 use ez_ffmpeg::{Input, Output};
@@ -9,7 +12,7 @@ use teloxide::{
     net::Download as _,
     payloads::SendVideoSetters as _,
     prelude::Requester as _,
-    types::{ChatId, InputFile, User, Video},
+    types::{ChatId, FileId, InputFile, User, Video},
 };
 use tokio::io::AsyncReadExt as _;
 
@@ -66,12 +69,8 @@ pub async fn mk_round(bot: Arc<Bot>, user: User, video: Video) -> HandlerResult<
     let name = user.username.clone().unwrap_or(user.full_name());
     let cid: ChatId = user.id.into();
     tracing::info!(user = name, "Round request");
-    let file = bot.get_file(video.file.id).await.with_chat(cid)?;
-    let mut buf = async_tempfile::TempFile::new().await?;
-    bot.download_file(&file.path, &mut buf)
-        .await
-        .with_chat(cid)?;
-    let byte_input = Input::new(buf.file_path().to_string_lossy())
+    let file = download_file(&bot, cid, video.file.id).await?;
+    let byte_input = Input::new(file.path().to_string_lossy())
         .set_start_time_us(0)
         .set_stop_time_us(60_000_000);
     let mut output_file = async_tempfile::TempFile::new().await?;
@@ -88,6 +87,43 @@ pub async fn mk_round(bot: Arc<Bot>, user: User, video: Video) -> HandlerResult<
     let f = InputFile::memory(Bytes::from_owner(out));
     bot.send_video_note(cid, f).await?;
     Ok(())
+}
+
+enum DownloadedFilePath {
+    Local(PathBuf),
+    Tmp(async_tempfile::TempFile),
+}
+
+impl DownloadedFilePath {
+    fn path(&self) -> &Path {
+        match self {
+            Self::Local(path_buf) => path_buf,
+            Self::Tmp(temp_file) => temp_file.file_path(),
+        }
+    }
+}
+
+/// 20Mb download size limit for non-local API calls
+const SIZE_LIMIT: u32 = 20 * 1024 * 1024;
+
+async fn download_file(
+    bot: &Bot,
+    chat_id: ChatId,
+    file_id: FileId,
+) -> HandlerResult<DownloadedFilePath> {
+    let file = bot.get_file(file_id).await.with_chat(chat_id)?;
+    // If `TELOXIDE_API_URL` is set, assume local API server, thus the filepath is local, no extra steps required
+    if std::env::var("TELOXIDE_API_URL").is_ok() {
+        Ok(DownloadedFilePath::Local(PathBuf::from(file.path)))
+    } else if file.size > SIZE_LIMIT {
+        Err(Error::FileTooLarge(file.size)).with_chat(chat_id)
+    } else {
+        let mut buf = async_tempfile::TempFile::new().await?;
+        bot.download_file(&file.path, &mut buf)
+            .await
+            .with_chat(chat_id)?;
+        Ok(DownloadedFilePath::Tmp(buf))
+    }
 }
 
 async fn upload_video(bot: &Bot, chat_id: ChatId, input: &Path) -> HandlerResult<()> {
