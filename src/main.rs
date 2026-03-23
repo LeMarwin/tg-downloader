@@ -1,3 +1,5 @@
+//! Telegram video downloader bot
+
 use std::sync::Arc;
 
 use teloxide::prelude::*;
@@ -32,6 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Init logging
 pub fn init_logging() {
     // This is an env var we made up to control the output log format.
     let output_type = std::env::var("LOG_OUTPUT_TYPE").unwrap_or("json".to_owned());

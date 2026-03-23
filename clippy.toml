@@ -1,0 +1,5 @@
+absolute-paths-max-segments = 4
+doc-valid-idents = [
+  "FFMpeg",
+  ".."
+]

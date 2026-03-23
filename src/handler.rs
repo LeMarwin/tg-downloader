@@ -1,3 +1,5 @@
+//! Request handlers
+
 use std::{path::Path, sync::Arc};
 
 use bytes::Bytes;
@@ -5,19 +7,20 @@ use ez_ffmpeg::{Input, Output};
 use teloxide::{
     Bot,
     net::Download as _,
-    payloads::SendVideoSetters,
-    prelude::Requester,
+    payloads::SendVideoSetters as _,
+    prelude::Requester as _,
     types::{ChatId, InputFile, User, Video},
 };
-use tokio::io::AsyncReadExt;
+use tokio::io::AsyncReadExt as _;
 
 use crate::{
     downloader::Downloader,
-    error::{Error, ErrorExt, HandlerResult},
+    error::{Error, ErrorExt as _, HandlerResult},
     url::{URL_CHECKER, UrlType},
     util::{self, VideoMeta},
 };
 
+/// Handle download requests
 pub async fn download_request(
     bot: Arc<Bot>,
     user: User,
@@ -51,26 +54,27 @@ pub async fn download_request(
     res
 }
 
-const FFMPEG_FILTER: &'static str = r#"
+const FFMPEG_FILTER: &str = r"
 [0:v]crop=min(in_w\,in_h):min(in_w\,in_h)[main]; 
 [main]scale=min(in_w\,640):min(in_h\,640)[main]; 
 [1:v][main]scale2ref[mask][main]; 
 [main][mask]overlay=(W-w)/2:(H-h)/2
-"#;
+";
 
+/// Convert incoming video into a round video note
 pub async fn mk_round(bot: Arc<Bot>, user: User, video: Video) -> HandlerResult<()> {
     let name = user.username.clone().unwrap_or(user.full_name());
     let cid: ChatId = user.id.into();
     tracing::info!(user = name, "Round request");
     let file = bot.get_file(video.file.id).await.with_chat(cid)?;
-    let mut buf = async_tempfile::TempFile::new().await.unwrap();
+    let mut buf = async_tempfile::TempFile::new().await?;
     bot.download_file(&file.path, &mut buf)
         .await
         .with_chat(cid)?;
     let byte_input = Input::new(buf.file_path().to_string_lossy())
         .set_start_time_us(0)
         .set_stop_time_us(60_000_000);
-    let mut output_file = async_tempfile::TempFile::new().await.unwrap();
+    let mut output_file = async_tempfile::TempFile::new().await?;
     let byte_output = Output::new(output_file.file_path().to_string_lossy()).set_format("mp4");
     ez_ffmpeg::FfmpegContext::builder()
         .inputs(vec![byte_input, Input::new("overlay.png")])

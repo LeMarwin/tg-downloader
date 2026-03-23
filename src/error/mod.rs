@@ -1,6 +1,9 @@
+//! Bot errors
+
 pub mod ext;
 pub use ext::*;
 
+#[expect(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Unrecognized URL: {0}")]

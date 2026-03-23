@@ -1,3 +1,5 @@
+//! Utility functions
+
 use std::{
     env,
     path::{Path, PathBuf},
@@ -6,13 +8,20 @@ use std::{
 use async_tempfile::TempFile;
 use ffprobe::ffprobe_config;
 
+/// Video metadata
 pub struct VideoMeta {
+    /// Video width
     pub width: u32,
+    /// Video height
     pub height: u32,
+    /// Duration in seconds
     pub duration_sec: u32,
+    /// Handle to thumbnail file.
+    /// File is removed when the handle is dropped
     pub thumbnail: TempFile,
 }
 
+#[expect(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("FFprobe: {0}")]
@@ -24,7 +33,7 @@ pub enum Error {
     #[error("TMPFile: {0}")]
     TmpFile(#[from] async_tempfile::Error),
     #[error("FFMPEG_PATH: {0}")]
-    FfmpegPath(std::env::VarError),
+    FfmpegPath(env::VarError),
     #[error("Unknown width")]
     Width,
     #[error("Width 0")]
@@ -44,7 +53,7 @@ pub async fn video_meta(input: &Path) -> Result<VideoMeta, Error> {
         ffprobe::ConfigBuilder::new()
             .ffprobe_bin(ffprobe_path)
             .build(),
-        &input,
+        input,
     )
     .map_err(Error::Fprobe)?;
     let stream = meta
@@ -71,7 +80,7 @@ pub async fn video_meta(input: &Path) -> Result<VideoMeta, Error> {
     } else {
         "scale=-1:320"
     };
-    let thumbnail = async_tempfile::TempFile::new().await?;
+    let thumbnail = TempFile::new().await?;
     ez_ffmpeg::FfmpegContext::builder()
         .input(ez_ffmpeg::Input::new(input.to_string_lossy()))
         .filter_desc(filter)

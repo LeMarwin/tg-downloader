@@ -21,3 +21,169 @@ tracing = "0.1.44"
 tracing-subscriber = {version = "0.3.22", features = [ "default", "json", "env-filter", "fmt" ]}
 async-tempfile = "0.7.0"
 ffprobe = "0.4.0"
+
+[lints.rust]
+missing_docs = "warn"
+impl-trait-overcaptures = "deny"
+
+# dead_code = "warn"                      # On by default
+explicit_outlives_requirements = "warn"
+invalid_reference_casting = "warn"
+let_underscore_drop = "warn"
+macro_use_extern_crate = "warn"
+meta_variable_misuse = "warn"
+non_ascii_idents = "warn"
+noop_method_call = "warn"
+# single_use_lifetimes = "warn"      # Has many false positives
+# trivial_casts = "warn"             # Has many false positives
+trivial_numeric_casts = "warn"
+# unsafe_code = "warn"               # We use it, and it is already explicit enough in the language
+# unused_crate_dependencies = "warn" # to be fixed
+unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+unused_qualifications = "warn"
+# variant_size_differences = "warn"  # to be fixed
+
+[lints.clippy]
+arithmetic_side_effects = "warn"
+assigning_clones = "warn"
+branches_sharing_code = "warn"
+cast_lossless = "warn"
+cast_possible_wrap = "warn"
+infinite_iter = "warn"
+infinite_loop = "warn"
+manual_string_new = "warn"
+missing_const_for_fn = "warn"
+missing_panics_doc = "warn"
+missing_safety_doc = "warn"
+needless_bitwise_bool = "warn"
+needless_collect = "warn"
+needless_continue = "allow"
+needless_for_each = "warn"
+needless_pass_by_ref_mut = "warn"
+needless_pass_by_value = "warn"
+redundant_clone = "warn"
+semicolon_if_nothing_returned = "warn"
+significant_drop_in_scrutinee = "warn"
+unnecessary_wraps = "warn"
+use_self = "warn"
+allow_attributes = "warn"
+
+all = { level = "warn", priority = -1 }
+## cargo
+cargo = { level = "warn", priority = -1 }
+cargo_common_metadata = "allow"
+multiple_crate_versions = "allow"
+
+## pedantic
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+# missing_panics_doc = "allow"  # Forbidding this above
+must_use_candidate = "allow"
+
+### Our exceptions to pedantic
+bool_to_int_with_if = "allow"              # Does not necessarily make code more readable
+cast_possible_truncation = "allow"         # We use `as` for lossy casts, so possible truncation is explicit
+cast_precision_loss = "allow"              # Same as `cast_possible_truncation`
+cast_sign_loss = "allow"                   # Same as `cast_possible_truncation`
+enum_glob_use = "allow"                    # It would be painful because of MavMessage enum. Shouldn’t cause any issues if we disable it.
+                                           # Plus, without this lint, readability can be better overall if glob use is used sparingly.
+float_cmp = "allow"                        # We have too many places where we either assert precise equality (in tests),
+                                           # or we need to match against an exact bit-pattern (MAVLink parameters are all f32 but aren’t used as f32)
+from_iter_instead_of_collect = "allow"     # Overall questinable lint. Also inspires rewrites depending on whether type annotation is needed or not, which is an unnecessary effort.
+if_not_else = "allow"                      # Not necessarily increases readability
+inconsistent_struct_constructor = "allow"  # Initialization order is only sometimes important, reordering every constructor to match one place where it is isn't helpful
+items_after_statements = "allow"           # to be fixed
+redundant_else = "allow"                   # This de-facto enforces exit points in middle or end of functions, such code is harder to analyze
+ref_option = "allow"                       # For internal functions this would result in unnecessary boilerplate
+return_self_not_must_use = "allow"         # Effort/benefit balance is not good for this lint.
+too_many_lines = "allow"                   # Any artificial hard limit on the number of lines in a function ultimately only leads to functions
+                                           # being arbitrarily split into two semantically interdependent pieces, which doesn’t help anything.
+                                           # Cyclomatic complexity would be a better measure, but clippy doesn’t do that.
+unreadable_literal = "allow"               # Most of our constants are not meant to be read, rather to be copied (encyclopedic data, latitudes/longitudes).
+
+## Code Style
+absolute_paths = "warn"
+# allow_attributes = "warn"                   # Enabled above
+empty_enum_variants_with_brackets = "warn"
+# field_scoped_visibility_modifiers = "warn"  # to be fixed
+# impl_trait_in_params = "warn"               # To our knowledge, should be disabled in other repos soon
+# mixed_read_write_in_expression = "warn"     # The order of evaluation is fully specified. And confusing code is filtered during review. So far we only had false positives
+# multiple_inherent_impl = "warn"             # We use it deliberately, particularly to:
+                                              # a) have a reasonable hierarchy of modules. The alternative is to do traits, but that comes with its own issues.
+                                              # b) to have locally private methods on a struct
+needless_raw_strings = "warn"
+# partial_pub_fields = "warn"                 # Some fields may be private by design, and exposing them as pub would allow downstream break invariants.
+                                              # And doing getters/setters everywhere is just turning Rust into Java, which isn’t worth it.
+redundant_type_annotations = "warn"
+ref_patterns = "warn"
+renamed_function_params = "warn"
+same_name_method = "warn"
+semicolon_inside_block = "warn"
+separated_literal_suffix = "warn"
+struct_field_names = "warn"
+unnecessary_self_imports = "warn"
+# wildcard_enum_match_arm = "warn"            # We follow this manually already except for the lot of cases when it’s not justified
+                                              # (case in point, ”unsupported clause” in procmacro or in enum of Mavlink messages)
+
+## Development Artifacts
+cfg_not_test = "warn"
+dbg_macro = "warn"
+# print_stderr = "warn"  # We do this a lot with examples
+# print_stdout = "warn"  # We do this a lot with examples
+todo = "warn"
+unimplemented = "warn"
+# unreachable = "warn"   # It’s infeasible to always prove to the compiler that some branch is, in fact, unreachable
+# use_debug = "warn"     # We use it a lot for tracing; imlementing Display for every type (MAVLink including) would be a burden
+
+## Documentation
+doc_include_without_cfg = "warn"
+# missing_assert_message = "warn"      # This triggers on test asserts, and usually the assert itself is self-descriptive.
+should_panic_without_expect = "warn"
+undocumented_unsafe_blocks = "warn"
+unnecessary_safety_comment = "warn"
+unnecessary_safety_doc = "warn"
+
+## Memory
+as_pointer_underscore = "warn"
+as_underscore = "warn"
+# big_endian_bytes = "warn"     # Need this in deserialization logic, which has to be endian-independent
+# host_endian_bytes = "warn"    # Same as above
+# little_endian_bytes = "warn"  # Same as above
+mem_forget = "warn"
+mutex_atomic = "warn"
+mutex_integer = "warn"
+non_zero_suggestions = "warn"
+rc_buffer = "warn"
+rc_mutex = "warn"
+
+## Collections and Iterators
+# indexing_slicing = "warn"                      # We know slicing can panic
+into_iter_without_iter = "warn"
+iter_without_into_iter = "warn"
+# map_with_unused_argument_over_ranges = "warn"  # What this lint proposes is a cluckier alternative
+# missing_asserts_for_indexing = "warn"          # Cannot be disabled per-case (some bug?)
+
+## Strings
+str_to_string = "warn"
+string_add = "warn"
+string_lit_chars_any = "warn"
+string_slice = "warn"
+string_to_string = "warn"
+
+## Numeric Operations
+decimal_literal_representation = "warn"
+float_cmp_const = "warn"
+fn_to_numeric_cast_any = "warn"
+# integer_division = "warn"              # We know how integer division behaves, and would be an alternative to just using `/`?
+lossy_float_literal = "warn"
+modulo_arithmetic = "warn"
+suspicious_xor_used_as_pow = "warn"
+
+## Pitfalls
+filetype_is_file = "warn"
+large_include_file = "warn"
+pathbuf_init_then_push = "warn"
+unused_trait_names = "warn"
+verbose_file_reads = "warn"
