@@ -8,19 +8,25 @@ default-run = "tg-downloader"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-tempfile = "0.7.0"
 bytes = "1.11.1"
 ez-ffmpeg = { version = "0.10.0", features = [ "async" ]}
+ffprobe = "0.4.0"
 futures = "0.3.32"
+itertools = "0.14.0"
 lazy-regex = "3.6.0"
 openssl = { version = "0.10.75", features = [ "vendored" ] }
+serde = "1.0.228"
+serde_json = "1.0.149"
 teloxide = { version = "0.17.0" }
 tempfile = "3.27.0"
 thiserror = "2.0.12"
 tokio = {version = "1.44.2", features = [ "macros", "process" ]}
+tokio-util = "0.7.18"
 tracing = "0.1.44"
 tracing-subscriber = {version = "0.3.22", features = [ "default", "json", "env-filter", "fmt" ]}
-async-tempfile = "0.7.0"
-ffprobe = "0.4.0"
+f128 = "0.2.9"
+num-traits = "0.2.19"
 
 [lints.rust]
 missing_docs = "warn"

@@ -2,9 +2,10 @@
 
 use std::path::PathBuf;
 
+use itertools::Either;
 use tokio::process::Command;
 
-use crate::{error::Error, url::UrlType};
+use crate::{dlp_info::DlpInfo, error::Error, url::UrlType};
 
 /// Download helper
 pub struct Downloader {
@@ -41,7 +42,6 @@ impl Downloader {
             "./stored/",
             "-o",
             "%(title)s.%(ext)s",
-            "--restrict-filenames",
             &format!("--ffmpeg-location={}", self.ffmpeg),
             "-t",
             url_type.yt_dlp_format(),
@@ -51,5 +51,73 @@ impl Downloader {
         let res = cmd.spawn()?.wait_with_output().await?;
         let path_str = String::from_utf8(res.stdout).map_err(std::io::Error::other)?;
         Ok(PathBuf::from(path_str.trim()))
+    }
+
+    /// Get json info for an url
+    pub async fn get_info_json(&self, url: &str) -> Result<DlpInfo, Error> {
+        let mut cmd = Command::new(&self.yt_dlp);
+        cmd.args(["-j", "--no-download", url]);
+        cmd.stdout(std::process::Stdio::piped());
+        let res = cmd.spawn()?.wait_with_output().await?;
+        let info = serde_json::from_slice(&res.stdout)?;
+        Ok(info)
+    }
+
+    /// Download a url using the stored json file
+    pub async fn download_with_format(&self, url: &str, format: Format) -> Result<PathBuf, Error> {
+        let mut cmd = Command::new(&self.yt_dlp);
+        let ffmpeg = format!("--ffmpeg-location={}", self.ffmpeg);
+        let args = [
+            "--no-progress",
+            "--print",
+            "after_move:filepath",
+            "-P",
+            "./stored/",
+            "-o",
+            "%(title)s.%(ext)s",
+            &ffmpeg,
+        ]
+        .into_iter()
+        .map(ToOwned::to_owned)
+        .chain(format.args())
+        .chain(std::iter::once(url.to_owned()));
+        cmd.args(args);
+        cmd.stdout(std::process::Stdio::piped());
+        let res = cmd.spawn()?.wait_with_output().await?;
+        let path_str = String::from_utf8(res.stdout).map_err(std::io::Error::other)?;
+        Ok(PathBuf::from(path_str.trim()))
+    }
+}
+
+/// Format info for the downloader
+#[derive(Debug, Clone, Copy)]
+pub enum Format {
+    /// Audio
+    Audio(u32),
+    /// Video
+    Video(u32),
+}
+
+impl Format {
+    fn args(self) -> impl IntoIterator<Item = String> + use<> {
+        match self {
+            Self::Audio(id) => Either::Left(
+                ["-f", &id.to_string(), "-x", "--audio-format", "mp3"]
+                    .map(ToOwned::to_owned)
+                    .into_iter(),
+            ),
+            Self::Video(id) => Either::Right(
+                [
+                    "-f",
+                    &format!("{id}+ba"),
+                    "--merge-output-format",
+                    "mp4",
+                    "--remux-video",
+                    "mp4",
+                ]
+                .map(ToOwned::to_owned)
+                .into_iter(),
+            ),
+        }
     }
 }

@@ -100,3 +100,25 @@ pub async fn video_meta(input: &Path) -> Result<VideoMeta, Error> {
         duration_sec,
     })
 }
+
+/// Format the size with SI suffixes.
+/// Left-pads with spaces to a same-length string
+#[expect(clippy::arithmetic_side_effects)]
+pub fn fmt_size(size: u64) -> String {
+    use f128::f128;
+    use num_traits::real::Real as _;
+
+    const SUFFIX: [&str; 9] = ["B ", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+    let unit: f128 = f128::from(1024.0);
+    let size = f128::from(size);
+
+    if size < unit {
+        return format!("{size:>7} B ");
+    }
+
+    let base = size.log10() / unit.log10();
+    let size: f64 = unit.powf(base - base.floor()).into();
+    let base: f64 = base.into();
+    let result = format!("{size:.2}").trim_end_matches(".0").to_owned();
+    format!("{result} {}", SUFFIX[base.floor() as usize])
+}

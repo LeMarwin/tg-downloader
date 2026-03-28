@@ -3,7 +3,6 @@
 //! All erros, with or without `chat_id` are traced in the log
 
 use std::sync::Arc;
-
 use teloxide::{Bot, error_handlers::ErrorHandler, prelude::Requester as _, types::ChatId};
 
 /// Handler result alias
@@ -41,6 +40,37 @@ impl<E: std::error::Error + Send + Sync + 'static> From<E> for BoxedError {
         Self {
             chat_id: None,
             error: Box::new(value),
+        }
+    }
+}
+
+mod sealed {
+    pub trait Sealed {}
+    impl<T> Sealed for Option<T> {}
+}
+
+/// Adding context to optional values
+pub trait OptExt<T>: Sized + sealed::Sealed {
+    /// Add context and only log the error
+    fn context(self, context: &str) -> Result<T, BoxedError> {
+        self.context_chat_opt(None, context)
+    }
+    /// Add context to log and sent the error to the user
+    fn context_chat(self, chat_id: ChatId, context: &str) -> Result<T, BoxedError> {
+        self.context_chat_opt(Some(chat_id), context)
+    }
+    /// Add context to log and optionally send the error to the user
+    fn context_chat_opt(self, chat_id: Option<ChatId>, context: &str) -> Result<T, BoxedError>;
+}
+
+impl<T> OptExt<T> for Option<T> {
+    fn context_chat_opt(self, chat_id: Option<ChatId>, context: &str) -> Result<T, BoxedError> {
+        match self {
+            Some(v) => Ok(v),
+            None => Err(BoxedError {
+                chat_id,
+                error: context.into(),
+            }),
         }
     }
 }

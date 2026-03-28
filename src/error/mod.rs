@@ -14,4 +14,8 @@ pub enum Error {
     RequestError(#[from] teloxide::RequestError),
     #[error("File too large: {0}, max is 20Mb")]
     FileTooLarge(u32),
+    #[error("Failed to find resource id")]
+    NoId,
+    #[error("{0}")]
+    Json(#[from] serde_json::Error),
 }

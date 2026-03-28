@@ -1,5 +1,6 @@
 //! Telegram downloader bot's lib
 
+pub mod dlp_info;
 pub mod downloader;
 pub mod error;
 pub mod handler;

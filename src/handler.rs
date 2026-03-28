@@ -1,5 +1,8 @@
 //! Request handlers
 
+pub mod callback;
+mod keyboard;
+
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -10,33 +13,40 @@ use ez_ffmpeg::{Input, Output};
 use teloxide::{
     Bot,
     net::Download as _,
-    payloads::SendVideoSetters as _,
+    payloads::{SendMessageSetters as _, SendVideoSetters as _},
     prelude::Requester as _,
-    types::{ChatId, FileId, InputFile, User, Video},
+    sugar::request::RequestReplyExt as _,
+    types::{ChatId, FileId, InputFile, Message, MessageId, Video},
 };
 use tokio::io::AsyncReadExt as _;
 
 use crate::{
+    OptExt as _,
     downloader::Downloader,
     error::{Error, ErrorExt as _, HandlerResult},
-    url::UrlMatcher,
+    handler::keyboard::info_to_keyboard,
+    url::{UrlMatcher, UrlType},
     util::{self, VideoMeta},
 };
 
 /// Handle download requests
 pub async fn download_request(
     bot: Arc<Bot>,
-    user: User,
+    msg: Message,
     text: String,
     downloader: Arc<Downloader>,
 ) -> HandlerResult<()> {
+    let user = msg.from.context("Sending to channel unsupported")?;
     let name = user.username.clone().unwrap_or(user.full_name());
     let chat_id: ChatId = user.id.into();
     let (url, url_type) = UrlMatcher::get_match(&text)
         .ok_or(Error::UnrecognizedUrl(text.clone()))
         .with_chat(user.id.into())?;
     tracing::info!(user=name, %chat_id, %url_type, url, "Request");
-
+    if matches!(url_type, UrlType::YoutubeVideo) {
+        choose_format(&bot, chat_id, msg.id, url.to_owned(), &downloader).await?;
+        return Ok(());
+    }
     let path = downloader
         .download(url, &url_type)
         .await
@@ -51,6 +61,22 @@ pub async fn download_request(
     res
 }
 
+async fn choose_format(
+    bot: &Bot,
+    chat_id: ChatId,
+    message_id: MessageId,
+    url: String,
+    downloader: &Downloader,
+) -> HandlerResult<()> {
+    let info = downloader.get_info_json(&url).await.with_chat(chat_id)?;
+    let keyboard = info_to_keyboard(info.formats);
+    bot.send_message(chat_id, "Select quality")
+        .reply_to(message_id)
+        .reply_markup(keyboard)
+        .await?;
+    Ok(())
+}
+
 const FFMPEG_FILTER: &str = r"
 [0:v]crop=min(in_w\,in_h):min(in_w\,in_h)[main]; 
 [main]scale=min(in_w\,640):min(in_h\,640)[main]; 
@@ -59,7 +85,8 @@ const FFMPEG_FILTER: &str = r"
 ";
 
 /// Convert incoming video into a round video note
-pub async fn mk_round(bot: Arc<Bot>, user: User, video: Video) -> HandlerResult<()> {
+pub async fn mk_round(bot: Arc<Bot>, msg: Message, video: Video) -> HandlerResult<()> {
+    let user = msg.from.context("Channel messages not supported")?;
     let name = user.username.clone().unwrap_or(user.full_name());
     let cid: ChatId = user.id.into();
     tracing::info!(user = name, "Round request");

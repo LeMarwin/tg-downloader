@@ -8,7 +8,7 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberI
 use tg_downloader::{
     downloader::Downloader,
     error::ErrorSender,
-    handler::{download_request, mk_round},
+    handler::{callback::handle_callback_query, download_request, mk_round},
 };
 
 #[tokio::main]
@@ -17,10 +17,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Initializing...");
     let bot = Arc::new(Bot::from_env());
     let downloader = Arc::new(Downloader::from_env().inspect_err(|e| tracing::error!(?e))?);
-    let schema = Update::filter_message()
-        .filter_map(|update: Update| update.from().cloned())
-        .branch(Message::filter_text().endpoint(download_request))
-        .branch(Message::filter_video().endpoint(mk_round));
+    let schema = dptree::entry()
+        .branch(Update::filter_callback_query().endpoint(handle_callback_query))
+        .branch(
+            Update::filter_message()
+                .branch(Message::filter_text().endpoint(download_request))
+                .branch(Message::filter_video().endpoint(mk_round)),
+        );
     let error_sender = ErrorSender::with_bot(bot.clone());
     tracing::info!("Starting tiktok downloader bot...");
     Dispatcher::builder(bot, schema)
